@@ -290,12 +290,12 @@
 (defclass filler-tree (filler)
   ((subfillers :initarg :subfillers :reader filler-subfillers)))
 
+(defgeneric filler-add-shapes-to-hashtable (filler hashtable))
+
 (defmethod filler-shapes ((f filler-tree))
   (let ((ht (make-hash-table)))
     (filler-add-shapes-to-hashtable f ht)
     (hash-table-keys ht)))
-
-(defgeneric filler-add-shapes-to-hashtable (filler hashtable))
 
 (defmethod filler-add-shapes-to-hashtable ((f filler-tree) ht)
   (dolist (subfiller (filler-subfillers f))
@@ -328,6 +328,12 @@
       (filler-insert subfiller shape))
     (setf (filler-free-area filler)
           (reduce #'+ (mapcar #'filler-free-area subfillers)))))
+
+(defgeneric filler-add-touching-shapes-to-hashtable (filler shape ht))
+(defgeneric filler-add-touching-shapes-to-hashtable-unchecked (filler shape ht))
+
+(defgeneric filler-touching-shapes (f s))
+(defgeneric filler-nearest-shape-to-point (f p))
 
 (defmethod filler-touching-shapes ((f filler) (s shape))
   (let ((ht (make-hash-table)))
@@ -377,6 +383,9 @@
                             best-shape s))
                   (setf (gethash s checked-shapes) t)))))))
     (values best-shape best-d2)))
+
+(defgeneric filler-random-free-point (f))
+(defgeneric filler-random-free-point-unchecked (f))
 
 (defmethod filler-random-free-point ((f filler))
   (if (< 0 (filler-free-area f))
