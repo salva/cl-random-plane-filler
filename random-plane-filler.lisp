@@ -1,4 +1,5 @@
 (ql:quickload "alexandria")
+(ql:quickload "vecto")
 (defpackage #:random-filler
   (:use #:cl :alexandria))
 
@@ -224,8 +225,9 @@
           (if (> discriminant 0)
               (let* ((inv-c2 (/ 1.0 c2))
                      (sqrt-discriminant (sqrt discriminant))
-                     (alfa0 (* inv-c2 (+ (- c1) (- sqrt-discriminant))))
-                     (alfa1 (* inv-c2 (+    c1  (- sqrt-discriminant)))))
+                     (alfa0 (* inv-c2 (- (- c1) sqrt-discriminant)))
+                     (alfa1 (* inv-c2 (+ (- c1) sqrt-discriminant))))
+                (print (list :inv-c2 inv-c2 :sqrt-discriminant sqrt-discriminant :alfa0 alfa0 :alfa1 alfa1))
                 (if (and (< alfa0 1.0) (> alfa1 0))
                     (let ((beta 0)
                           (p0)
@@ -237,7 +239,7 @@
                       (if (<= alfa1 1)
                           (setf p1 (v+ a (v*s ab alfa1))
                                 beta (+ beta (v-angle p1 b)))
-                          (set p1 b))
+                          (setf p1 b))
                       (return-from ia2-circle-segment
                         (+ (- (* (aref p0 0) (aref p1 1))
                               (* (aref p0 1) (aref p1 0)))
@@ -409,5 +411,32 @@
               (setf ix (- ix free-area))
               (return (filler-random-free-point sf))))))))
 
-     
-         
+(defun draw-circles (file-name circles)
+  (let* ((scl 1024)
+         (px0 1024)
+         (py0 1024))
+    (defun scl-x (x) (+ (* x scl) px0))
+    (defun scl-y (y) (+ (* y scl) py0))
+    (vecto:with-canvas (:width (* 2 scl) :height (* 2 scl))
+      (vecto:set-rgb-stroke 1 0 0)
+      (vecto:set-line-width 3)
+      (vecto:set-rgb-fill 1 1 0)
+      (dolist (c circles)
+        (with-slots (o r) c
+          (print (list :ox (aref o 0) :pox (scl-x (aref o 0))
+                       :oy (aref o 1) :poy (scl-y (aref o 1))
+                       :r r))
+          (vecto:centered-circle-path (scl-x (aref o 0)) (scl-y (aref o 1)) (* scl r))
+          (vecto:stroke)))
+      (vecto:save-png file-name))))
+
+(defun random-circle ()
+  (let ((r (random 1.0))
+        (o (vector (- (random 2.0) 1.0)
+                   (- (random 2.0) 1.0))))
+    (make-instance 'circle :r r :o o)))
+
+(defun random-circles (n)
+  (let ((circles))
+    (dotimes (i n circles)
+      (setf circles (cons (random-circle) circles)))))
