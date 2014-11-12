@@ -1,0 +1,82 @@
+(ql:quickload "lisp-magick")
+
+(defpackage #:circle-pixels
+  (:use #:cl :alexandria))
+
+(in-package circle-pixels)
+
+(proclaim '(optimize speed))
+
+(defconstant %dilution 0.15)
+
+(defun draw-pixel (dw x0 y0 pixel-size r g b pw-border pw-r pw-g pw-b)
+  (let* ((radius (* 0.5 pixel-size))
+         (ox (+ x0 radius))
+         (oy (+ y0 radius))
+         (area-total (* pi radius radius))
+         (area-r (/ (* %dilution area-total r) 256))
+         (area-g (/ (* %dilution area-total g) 256))
+         (area-b (/ (* %dilution area-total b) 256))
+         (r-b (sqrt area-b))
+         (r-g (sqrt (+ area-b area-g)))
+         (r-r (sqrt (+ area-b area-g area-r))))
+    (magick:draw-set-stroke-color dw pw-border)
+    (magick:draw-set-fill-color dw pw-r)
+    (magick:draw-circle dw ox oy (+ ox r-r) oy)
+    (magick:draw-set-fill-color dw pw-g)
+    (magick:draw-circle dw ox oy (+ ox r-g) oy)
+    (magick:draw-set-fill-color dw pw-b)
+    (magick:draw-circle dw ox oy (+ ox r-b) oy)))
+
+(defun circletize (file-in file-out &key (pixel-size 32))
+  (magick:with-magick-wand (wand-in :load file-in)
+    (let* ((width  (magick:get-image-width wand-in))
+           (height (magick:get-image-height wand-in))
+           (width-pixels  (ceiling width pixel-size))
+           (height-pixels (ceiling height pixel-size)))
+      ;;(print (list :width width :height height :width-pixels width-pixels :height-pixels height-pixels))
+      (magick:with-drawing-wand (dw-out)
+        (magick:with-pixel-wand (pw-black :comp (0 0 0))
+          (magick:with-pixel-wand (pw-r :comp (255 0 0))
+            (magick:with-pixel-wand (pw-g :comp (0 255 0))
+              (magick:with-pixel-wand (pw-b :comp (0 0 255))
+                (magick:with-pixel-data (pd-in wand-in)
+                  (dotimes (x-p width-pixels)
+                    ;;(print (list :x-p x-p))
+                    (dotimes (y-p height-pixels)
+                      (let* ((x0 (floor (* x-p width) width-pixels))
+                             (y0 (floor (* y-p height) height-pixels))
+                             (x1 (floor (* (+ x-p 1) width) width-pixels))
+                             (y1 (floor (* (+ y-p 1) height) height-pixels))
+                             (dx (- x1 x0))
+                             (dy (- y1 y0))
+                             (source-pixel-area (* dx dy))
+                             (acu-r 0)
+                             (acu-g 0)
+                             (acu-b 0))
+                        (dotimes (x dx)
+                          (dotimes (y dy)
+                            (multiple-value-bind (r b g) (magick:get-pixel pd-in (+ x0 x) (+ y0 y))
+                              (setf acu-r (+ acu-r r))
+                              (setf acu-g (+ acu-g g))
+                              (setf acu-b (+ acu-b b)))))
+                        (let ((mean-r (floor acu-r source-pixel-area))
+                              (mean-g (floor acu-g source-pixel-area))
+                              (mean-b (floor acu-b source-pixel-area))
+                              (x0 (* x-p pixel-size))
+                              (y0 (* y-p pixel-size)))
+                          (draw-pixel dw-out x0 y0 pixel-size mean-r mean-g mean-b
+                                      pw-black pw-r pw-g pw-b))))))))))
+        (magick:with-magick-wand (wand-out :create (* pixel-size width-pixels) (* pixel-size height-pixels)
+                                           :comp (0 0 0))
+          (print "drawing image")
+          (magick:draw-image wand-out dw-out)
+          (print "saving image")
+          (magick:write-image wand-out file-out))))))
+                
+              
+
+                  
+        
+      
+      
